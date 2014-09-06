@@ -27,5 +27,6 @@ clean:
 	rm -f shell.o
 	rm -f w4118_sh_debug
 	rm -f $(OBJECTS_DEBUG)
+	rm -f err.log
 
 .PHONY: clean debug
