@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
+#include <wait.h>
 
 #ifdef SHELL_DEBUG
 #define DBGMSG printf
@@ -135,6 +136,37 @@ int exec_cd(const char *path)
 	return rval;
 }
 
+int exec_program(const char *file, char **argv)
+{
+	int rval = 0;
+	int pid = 0;
+
+	pid = fork();
+	if (pid == 0) {
+#ifdef SHELL_DEBUG
+		int i = 0;
+		DBGMSG("Child exec %s\n", file);
+		for (i=0; i<INPUT_TOKEN_NUM_UNIT; i++) {
+			printf("arg[%d]: %s\n", i, argv[i]);
+		}
+#endif
+		rval = execv(file, argv);
+		if (rval < 0)
+			print_errno();
+		DBGMSG("Child process exit\n");
+		exit(EXIT_SUCCESS);
+	} else if (pid > 0) {
+		int status = 0;
+		DBGMSG("Parent wait for child %d\n", pid);
+		rval = waitpid(pid, &status, 0);
+		DBGMSG("Parent back from child %d: %d\n", rval, status);
+	} else {
+		print_errno();
+	}
+
+	return rval;
+}
+
 int main(int argc, char **argv)
 {
 	int rval = 0;
@@ -219,8 +251,7 @@ int main(int argc, char **argv)
 				}
 			}
 		} else {
-			printf("w4118_sh: Cannot find command %s\n", \
-					input_token_arr[0]);
+			rval = exec_program(*input_token_arr, input_token_arr);
 		}
 	}
 
