@@ -25,10 +25,9 @@ char *input_buf_cur = NULL;
 char **input_pipe_arr = NULL;
 unsigned int input_pipe_num = INPUT_PIPE_NUM_UNIT;
 
-#define INPUT_TOKEN_NUM_UNIT	(8)
+#define INPUT_TOKEN_NUM_UNIT	(128)
 
-char **input_token_arr = NULL;
-unsigned int input_token_num = INPUT_TOKEN_NUM_UNIT;
+char *input_token_arr[INPUT_TOKEN_NUM_UNIT];
 
 inline void print_errno(void)
 {
@@ -98,6 +97,7 @@ int search_input_token(char *input, const char *token, \
 		char **output_arr, unsigned int output_arr_num)
 {
 	int i = 0;
+	char *tmp = NULL;
 
 	*output_arr = strtok(input, token);
 	DBGMSG("Input token 0: %s\n", *output_arr);
@@ -114,6 +114,10 @@ int search_input_token(char *input, const char *token, \
 
 		i++;
 	} while (i < output_arr_num);
+
+	tmp = strtok(NULL, token);
+	if (tmp != NULL)
+		printf("Too many arguments. They will be ignored\n");
 
 	return i;
 }
@@ -170,20 +174,6 @@ int main(int argc, char **argv)
 	DBGMSG("Input pipe array: 0x%X\n", \
 			(unsigned int)input_pipe_arr);
 
-	DBGMSG("Allocate token number: %d\n", input_token_num);
-	DBGMSG("Allocate token size: %d\n", input_pipe_num * \
-			input_token_num * sizeof(char*));
-	input_token_arr = (char**)malloc(input_pipe_num * \
-			input_token_num * sizeof(char*));
-
-	if (input_token_arr == NULL) {
-		printf("error: Input token array allocation failed! \
-				Shell terminates\n");
-		goto __main_exit;
-	}
-	DBGMSG("Input token array: 0x%X\n", \
-			(unsigned int)input_token_arr);
-
 	while(1) {
 		printf("$ ");
 		get_input(&input);
@@ -197,8 +187,7 @@ int main(int argc, char **argv)
 
 		for (i=0; i<pipe_num; i++) {
 			token_num = search_input_token(input_pipe_arr[i], " ", \
-					input_token_arr, \
-					input_token_num);
+					input_token_arr, INPUT_TOKEN_NUM_UNIT);
 			DBGMSG("Input token number: %d\n", token_num);
 #ifdef SHELL_DEBUG
 			{
@@ -239,12 +228,6 @@ __main_exit:
 		DBGMSG("Free input pipe array: 0x%X\n", \
 				(unsigned int)input_pipe_arr);
 		free(input_pipe_arr);
-	}
-
-	if (input_token_arr != NULL) {
-		DBGMSG("Free input token array: 0x%X\n", \
-				(unsigned int)input_token_arr);
-		free(input_token_arr);
 	}
 
 	return 0;
