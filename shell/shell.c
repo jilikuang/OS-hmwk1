@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <errno.h>
 
 #ifdef SHELL_DEBUG
 #define DBGMSG printf
@@ -29,7 +30,7 @@ unsigned int input_pipe_num = INPUT_PIPE_NUM_UNIT;
 char **input_token_arr = NULL;
 unsigned int input_token_num = INPUT_TOKEN_NUM_UNIT;
 
-inline void print_errno(int errno)
+inline void print_errno(void)
 {
 	printf("error: %s\n", strerror(errno));
 	return;
@@ -117,8 +118,22 @@ int search_input_token(char *input, const char *token, \
 	return i;
 }
 
+int exec_cd(const char *path)
+{
+	int rval = 0;
+
+	DBGMSG("Current dir (before): %s\n", (char*)get_current_dir_name());
+	rval = chdir(path);
+	if (rval < 0)
+		print_errno();
+	DBGMSG("Current dir (after): %s\n", (char*)get_current_dir_name());
+
+	return rval;
+}
+
 int main(int argc, char **argv)
 {
+	int rval = 0;
 	char *input = NULL;
 	int pipe_num = 0, token_num = 0;
 	int i = 0;
@@ -201,6 +216,14 @@ int main(int argc, char **argv)
 				printf("exit don't need any arguments\n");
 			else
 				break;
+		} else if (strcmp(input_token_arr[0], "cd") == 0) {
+			if (token_num > 2) {
+				printf("Too many arguments for cd\n");
+			} else {
+				rval = exec_cd(input_token_arr[1]);
+				if (rval < 0)
+					printf("Unknown directory path\n");
+			}
 		} else {
 			printf("Cannot find command: %s\n", input_token_arr[0]);		}
 	}
