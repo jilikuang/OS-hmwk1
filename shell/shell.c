@@ -19,6 +19,11 @@ unsigned int input_buf_size = INPUT_BUF_SIZE_UNIT;
 unsigned int input_buf_idx = 0;
 char *input_buf_cur = NULL;
 
+#define INPUT_PIPE_NUM_UNIT	(8)
+
+char **input_pipe_arr = NULL;
+unsigned int input_pipe_num = INPUT_PIPE_NUM_UNIT;
+
 #define INPUT_TOKEN_NUM_UNIT	(8)
 
 char **input_token_arr = NULL;
@@ -93,18 +98,18 @@ int search_input_token(char *input, const char *token, \
 {
 	int i = 0;
 
-	output_arr[0] = strtok(input, token);
-	DBGMSG("Input token 0: %s\n", output_arr[0]);
+	*output_arr = strtok(input, token);
+	DBGMSG("Input token 0: %s\n", *output_arr);
 
 	i++;
 
 	do {
-		output_arr[i] = strtok(NULL, token);
-		if (output_arr[i] == NULL) {
+		*(output_arr+i) = strtok(NULL, token);
+		if (*(output_arr+i) == NULL) {
 			DBGMSG("No more token\n");
 			break;
 		}
-		DBGMSG("Input token %d: %s\n", i, output_arr[i]);
+		DBGMSG("Input token %d: %s\n", i, *(output_arr+i));
 
 		i++;
 	} while (i < output_arr_num);
@@ -115,9 +120,10 @@ int search_input_token(char *input, const char *token, \
 int main(int argc, char **argv)
 {
 	char *input = NULL;
-	int token_num = 0;
-#ifdef SHELL_DEBUG
+	int pipe_num = 0, token_num = 0;
 	int i = 0;
+
+#ifdef SHELL_DEBUG
 	printf("argc: %d\n", argc);
 	for (i=0; i<argc; i++)
 		printf("argv[%d]: %s\n", i, argv[i]);
@@ -137,9 +143,23 @@ int main(int argc, char **argv)
 		input_buf_cur = input_buf[input_buf_idx];
 	}
 
+	DBGMSG("Allocate pipe number: %d\n", input_pipe_num);
+	DBGMSG("Allocate pipe size: %d\n", input_pipe_num * sizeof(char*));
+	input_pipe_arr = (char**)malloc(input_pipe_num * sizeof(char*));
+
+	if (input_pipe_arr == NULL) {
+		printf("error: Input pipe array allocation failed! \
+				Shell terminates\n");
+		goto __main_exit;
+	}
+	DBGMSG("Input pipe array: 0x%X\n", \
+			(unsigned int)input_pipe_arr);
+
 	DBGMSG("Allocate token number: %d\n", input_token_num);
-	DBGMSG("Allocate token size: %d\n", input_token_num * sizeof(char*));
-	input_token_arr = (char**)malloc(input_token_num * sizeof(char*));
+	DBGMSG("Allocate token size: %d\n", input_pipe_num * \
+			input_token_num * sizeof(char*));
+	input_token_arr = (char**)malloc(input_pipe_num * \
+			input_token_num * sizeof(char*));
 
 	if (input_token_arr == NULL) {
 		printf("error: Input token array allocation failed! \
@@ -149,24 +169,32 @@ int main(int argc, char **argv)
 	DBGMSG("Input token array: 0x%X\n", \
 			(unsigned int)input_token_arr);
 
-	do {
+	while(1) {
 		printf("$ ");
 		get_input(&input);
 
 		if (input[0] == '\0')
 			continue;
 
-		token_num = search_input_token(input, " ", \
-				input_token_arr, input_token_num);
-		DBGMSG("Input token number: %d\n", token_num);
+		pipe_num = search_input_token(input, "|", \
+				input_pipe_arr, input_pipe_num);
+		DBGMSG("Input pipe_num: %d\n", pipe_num);
+
+		for (i=0; i<pipe_num; i++) {
+			token_num = search_input_token(input_pipe_arr[i], " ", \
+					input_token_arr, \
+					input_token_num);
+			DBGMSG("Input token number: %d\n", token_num);
 #ifdef SHELL_DEBUG
-		{
-			int i = 0;
-			for (i=0; i<token_num; i++) {
-				printf("token %d: %s\n", i, input_token_arr[i]);
+			{
+				int j = 0;
+				for (j=0; j<token_num; j++) {
+					printf("token %d: %s\n", j, \
+							input_token_arr[j]);
+				}
 			}
-		}
 #endif
+		}
 
 		if (strcmp(input_token_arr[0], "exit") == 0) {
 			if (token_num > 1)
@@ -175,13 +203,19 @@ int main(int argc, char **argv)
 				break;
 		} else {
 			printf("Cannot find command: %s\n", input_token_arr[0]);		}
-	} while (1);
+	}
 
 __main_exit:
 	if (input_buf_cur != NULL) {
 		DBGMSG("Free input buffer: 0x%X\n", \
 				(unsigned int)input_buf_cur);
 		free(input_buf_cur);
+	}
+
+	if (input_pipe_arr != NULL) {
+		DBGMSG("Free input pipe array: 0x%X\n", \
+				(unsigned int)input_pipe_arr);
+		free(input_pipe_arr);
 	}
 
 	if (input_token_arr != NULL) {
