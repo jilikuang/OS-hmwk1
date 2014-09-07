@@ -117,7 +117,7 @@ int search_input_token(char *input, const char *token, \
 
 	tmp = strtok(NULL, token);
 	if (tmp != NULL)
-		printf("Too many arguments. They will be ignored\n");
+		printf("error: Too many arguments. They will be ignored\n");
 
 	return i;
 }
@@ -187,12 +187,13 @@ int main(int argc, char **argv)
 
 		for (i=0; i<pipe_num; i++) {
 			token_num = search_input_token(input_pipe_arr[i], " ", \
-					input_token_arr, INPUT_TOKEN_NUM_UNIT);
+					input_token_arr, \
+					INPUT_TOKEN_NUM_UNIT-1);
 			DBGMSG("Input token number: %d\n", token_num);
 #ifdef SHELL_DEBUG
 			{
 				int j = 0;
-				for (j=0; j<token_num; j++) {
+				for (j=0; j<INPUT_TOKEN_NUM_UNIT; j++) {
 					printf("token %d: %s\n", j, \
 							input_token_arr[j]);
 				}
@@ -201,20 +202,26 @@ int main(int argc, char **argv)
 		}
 
 		if (strcmp(input_token_arr[0], "exit") == 0) {
-			if (token_num > 1)
+			if (token_num > 1) {
+				printf("w4118_sh: ");
 				printf("exit don't need any arguments\n");
-			else
+			} else {
 				break;
+			}
 		} else if (strcmp(input_token_arr[0], "cd") == 0) {
 			if (token_num > 2) {
-				printf("Too many arguments for cd\n");
+				printf("w4118_sh: Too many arguments for cd\n");
 			} else {
 				rval = exec_cd(input_token_arr[1]);
-				if (rval < 0)
-					printf("Unknown directory path\n");
+				if (rval < 0) {
+					printf("w4118_sh: ");
+					printf("Invalid directory path\n");
+				}
 			}
 		} else {
-			printf("Cannot find command: %s\n", input_token_arr[0]);		}
+			printf("w4118_sh: Cannot find command %s\n", \
+					input_token_arr[0]);
+		}
 	}
 
 __main_exit:
