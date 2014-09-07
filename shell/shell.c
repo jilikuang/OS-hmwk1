@@ -88,25 +88,26 @@ int get_input(char **input_buf_p)
 	return -1;
 }
 
-int search_input_token(char *input)
+int search_input_token(char *input, const char *token, \
+		char **output_arr, unsigned int output_arr_num)
 {
 	int i = 0;
 
-	input_token_arr[0] = strtok(input, " ");
-	DBGMSG("Input token 0: %s\n", input_token_arr[0]);
+	output_arr[0] = strtok(input, token);
+	DBGMSG("Input token 0: %s\n", output_arr[0]);
 
 	i++;
 
 	do {
-		input_token_arr[i] = strtok(NULL, " ");
-		if (input_token_arr[i] == NULL) {
+		output_arr[i] = strtok(NULL, token);
+		if (output_arr[i] == NULL) {
 			DBGMSG("No more token\n");
 			break;
 		}
-		DBGMSG("Input token %d: %s\n", i, input_token_arr[i]);
+		DBGMSG("Input token %d: %s\n", i, output_arr[i]);
 
 		i++;
-	} while (i < input_token_num);
+	} while (i < output_arr_num);
 
 	return i;
 }
@@ -155,7 +156,8 @@ int main(int argc, char **argv)
 		if (input[0] == '\0')
 			continue;
 
-		token_num = search_input_token(input);
+		token_num = search_input_token(input, " ", \
+				input_token_arr, input_token_num);
 		DBGMSG("Input token number: %d\n", token_num);
 #ifdef SHELL_DEBUG
 		{
