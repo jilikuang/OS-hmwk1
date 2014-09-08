@@ -11,13 +11,13 @@ struct path_s {
 	struct path_s *next;
 };
 
-static struct path_s *path_head = NULL;
-static struct path_s *path_cur = NULL;
+struct path_s *path_head = NULL;
+struct path_s *path_cur = NULL;
 
-static char *path_filename = NULL;
-static int path_filename_size = 0;
+char *path_filename = NULL;
+int path_filename_size = 0;
 
-char* path_get_first_path(void)
+char *path_get_first_path(void)
 {
 	path_cur = path_head;
 
@@ -27,7 +27,7 @@ char* path_get_first_path(void)
 	return path_cur->path;
 }
 
-char* path_get_next_path(void)
+char *path_get_next_path(void)
 {
 	struct path_s *tmp = path_cur;
 
@@ -35,8 +35,8 @@ char* path_get_next_path(void)
 		return NULL;
 	else if (tmp->next == NULL)
 		return NULL;
-	else
-		path_cur = tmp->next;
+
+	path_cur = tmp->next;
 
 	return path_cur->path;
 }
@@ -52,7 +52,7 @@ int path_search_path(const char *path)
 			path_cur = tmp;
 			break;
 		}
-		
+
 		tmp = tmp->next;
 	}
 
@@ -70,13 +70,13 @@ int path_push_path(const char *path)
 		return -1;
 	}
 
-	tmp = (struct path_s*)malloc(sizeof(struct path_s));
+	tmp = (struct path_s *)malloc(sizeof(struct path_s));
 
 	if (tmp == NULL) {
 		printf("error: Path node allocation failed\n");
 		rval = -1;
 	} else {
-		tmp->path = (char*)malloc((len+1)*sizeof(char));
+		tmp->path = (char *)malloc((len+1)*sizeof(char));
 		if (tmp->path == NULL) {
 			printf("error: Path storage allocation failed\n");
 			free(tmp);
@@ -123,7 +123,7 @@ int path_delete_path(const char *path)
 	return rval;
 }
 
-static char* get_full_filepath(const char *path, const char *filename)
+static char *get_full_filepath(const char *path, const char *filename)
 {
 	int file_len = strlen(filename);
 	int path_len = strlen(path);
@@ -133,7 +133,7 @@ static char* get_full_filepath(const char *path, const char *filename)
 	if (target_size > path_filename_size) {
 		if (path_filename)
 			free(path_filename);
-		path_filename = (char*)malloc(target_size);
+		path_filename = (char *)malloc(target_size);
 		if (path_filename == NULL) {
 			printf("error: Path/file allocation failed\n");
 			path_filename_size = 0;
@@ -149,7 +149,7 @@ static char* get_full_filepath(const char *path, const char *filename)
 	return path_filename;
 }
 
-char* path_check_file_exist(const char *filename)
+char *path_check_file_exist(const char *filename)
 {
 	int rval = 0;
 	char *tmp_path = NULL;
@@ -171,10 +171,10 @@ char* path_check_file_exist(const char *filename)
 		tmp_path = path_get_next_path();
 	}
 
-	if (rval == 0)
-		return chk_name;
-	else
+	if (rval < 0)
 		return NULL;
+
+	return chk_name;
 }
 
 void path_terminate(void)

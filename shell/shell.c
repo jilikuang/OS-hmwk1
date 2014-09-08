@@ -35,7 +35,6 @@ char *input_token_arr[INPUT_TOKEN_NUM_UNIT];
 inline void print_errno(void)
 {
 	printf("error: %s\n", strerror(errno));
-	return;
 }
 
 int switch_input_buf(void)
@@ -44,8 +43,7 @@ int switch_input_buf(void)
 	unsigned int next_idx = (input_buf_idx+1) & 0x1;
 	unsigned int next_size = input_buf_size + INPUT_BUF_SIZE_UNIT;
 
-	DBGMSG("Try to switch to input buffer %d, size = %d\n", \
-			next_idx, next_size);
+	DBGMSG("Try to switch to input buffer %d, size = %d\n", next_idx, next_size);
 
 	input_buf[next_idx] = malloc(next_size);
 	if (input_buf[next_idx] == NULL) {
@@ -53,15 +51,12 @@ int switch_input_buf(void)
 		rval = -1;
 	} else {
 		DBGMSG("Input buffer switching succeeded\n");
-		strncpy(input_buf[next_idx], \
-				input_buf[input_buf_idx], \
-				input_buf_size-1);
+		strncpy(input_buf[next_idx], input_buf[input_buf_idx], input_buf_size-1);
 		free(input_buf[input_buf_idx]);
 		input_buf_idx = next_idx;
 		input_buf_size = next_size;
 		input_buf_cur = input_buf[input_buf_idx];
-		DBGMSG("Input swtiched to buffer 0x%X\n", \
-				(unsigned int)input_buf_cur);
+		DBGMSG("Input swtiched to buffer 0x%X\n", (unsigned int)input_buf_cur);
 	}
 
 	return rval;
@@ -96,8 +91,7 @@ int get_input(char **input_buf_p)
 	return -1;
 }
 
-int search_input_token(char *input, const char *token, \
-		char **output_arr, unsigned int output_arr_num)
+int search_input_token(char *input, const char *token, char **output_arr, unsigned int output_arr_num)
 {
 	int i = 0;
 	char *tmp = NULL;
@@ -129,11 +123,11 @@ int exec_cd(const char *path)
 {
 	int rval = 0;
 
-	DBGMSG("Current dir (before): %s\n", (char*)get_current_dir_name());
+	DBGMSG("Current dir (before): %s\n", (char *)get_current_dir_name());
 	rval = chdir(path);
 	if (rval < 0)
 		print_errno();
-	DBGMSG("Current dir (after): %s\n", (char*)get_current_dir_name());
+	DBGMSG("Current dir (after): %s\n", (char *)get_current_dir_name());
 
 	return rval;
 }
@@ -155,10 +149,10 @@ int exec_program(const char *file, char **argv)
 	if (pid == 0) {
 #ifdef SHELL_DEBUG
 		int i = 0;
+
 		DBGMSG("Child exec %s\n", fexec);
-		for (i=0; i<INPUT_TOKEN_NUM_UNIT; i++) {
+		for (i = 0; i < INPUT_TOKEN_NUM_UNIT; i++)
 			printf("arg[%d]: %s\n", i, argv[i]);
-		}
 #endif
 		rval = execv(fexec, argv);
 		if (rval < 0)
@@ -167,6 +161,7 @@ int exec_program(const char *file, char **argv)
 		exit(EXIT_SUCCESS);
 	} else if (pid > 0) {
 		int status = 0;
+
 		DBGMSG("Parent wait for child %d\n", pid);
 		rval = waitpid(pid, &status, 0);
 		DBGMSG("Parent back from child %d: %d\n", rval, status);
@@ -215,59 +210,51 @@ int main(int argc, char **argv)
 
 #ifdef SHELL_DEBUG
 	printf("argc: %d\n", argc);
-	for (i=0; i<argc; i++)
+	for (i = 0; i < argc; i++)
 		printf("argv[%d]: %s\n", i, argv[i]);
 #endif
 
 	DBGMSG("Allocate buffer char: %d\n", input_buf_size);
 	DBGMSG("Allocate buffer size: %d\n", input_buf_size * sizeof(char));
-	input_buf[input_buf_idx] = (char*)malloc(input_buf_size * sizeof(char));
+	input_buf[input_buf_idx] = (char *)malloc(input_buf_size * sizeof(char));
 
 	if (input_buf[input_buf_idx] == NULL) {
-		printf("error: Input buffer allocation failed! \
-				Shell terminates\n");
+		printf("error: Input buffer allocation failed! Shell terminates\n");
 		goto __main_exit;
 	} else {
-		DBGMSG("Input buffer: 0x%X\n", \
-				(unsigned int)input_buf[input_buf_idx]);
+		DBGMSG("Input buffer: 0x%X\n", (unsigned int)input_buf[input_buf_idx]);
 		input_buf_cur = input_buf[input_buf_idx];
 	}
 
 	DBGMSG("Allocate pipe number: %d\n", input_pipe_num);
-	DBGMSG("Allocate pipe size: %d\n", input_pipe_num * sizeof(char*));
-	input_pipe_arr = (char**)malloc(input_pipe_num * sizeof(char*));
+	DBGMSG("Allocate pipe size: %d\n", input_pipe_num * sizeof(char *));
+	input_pipe_arr = (char **)malloc(input_pipe_num * sizeof(char *));
 
 	if (input_pipe_arr == NULL) {
-		printf("error: Input pipe array allocation failed! \
-				Shell terminates\n");
+		printf("error: Input pipe array allocation failed! Shell terminates\n");
 		goto __main_exit;
 	}
-	DBGMSG("Input pipe array: 0x%X\n", \
-			(unsigned int)input_pipe_arr);
+	DBGMSG("Input pipe array: 0x%X\n", (unsigned int)input_pipe_arr);
 
-	while(1) {
+	while (1) {
 		printf("$ ");
 		get_input(&input);
 
 		if (input[0] == '\0')
 			continue;
 
-		pipe_num = search_input_token(input, "|", \
-				input_pipe_arr, input_pipe_num);
+		pipe_num = search_input_token(input, "|", input_pipe_arr, input_pipe_num);
 		DBGMSG("Input pipe_num: %d\n", pipe_num);
 
-		for (i=0; i<pipe_num; i++) {
-			token_num = search_input_token(input_pipe_arr[i], " ", \
-					input_token_arr, \
-					INPUT_TOKEN_NUM_UNIT-1);
+		for (i = 0; i < pipe_num; i++) {
+			token_num = search_input_token(input_pipe_arr[i], " ", input_token_arr, INPUT_TOKEN_NUM_UNIT-1);
 			DBGMSG("Input token number: %d\n", token_num);
 #ifdef SHELL_DEBUG
 			{
 				int j = 0;
-				for (j=0; j<INPUT_TOKEN_NUM_UNIT; j++) {
-					printf("token %d: %s\n", j, \
-							input_token_arr[j]);
-				}
+
+				for (j = 0; j < INPUT_TOKEN_NUM_UNIT; j++)
+					printf("token %d: %s\n", j, input_token_arr[j]);
 			}
 #endif
 		}
@@ -294,8 +281,7 @@ int main(int argc, char **argv)
 				printf("w4118_sh: ");
 				printf("Too many arguments for path\n");
 			} else {
-				rval = exec_path(input_token_arr[1], \
-						input_token_arr[2]);
+				rval = exec_path(input_token_arr[1], \input_token_arr[2]);
 			}
 		} else {
 			rval = exec_program(*input_token_arr, input_token_arr);
@@ -304,14 +290,12 @@ int main(int argc, char **argv)
 
 __main_exit:
 	if (input_buf_cur != NULL) {
-		DBGMSG("Free input buffer: 0x%X\n", \
-				(unsigned int)input_buf_cur);
+		DBGMSG("Free input buffer: 0x%X\n", (unsigned int)input_buf_cur);
 		free(input_buf_cur);
 	}
 
 	if (input_pipe_arr != NULL) {
-		DBGMSG("Free input pipe array: 0x%X\n", \
-				(unsigned int)input_pipe_arr);
+		DBGMSG("Free input pipe array: 0x%X\n", (unsigned int)input_pipe_arr);
 		free(input_pipe_arr);
 	}
 
