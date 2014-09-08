@@ -281,7 +281,7 @@ int main(int argc, char **argv)
 				printf("w4118_sh: ");
 				printf("Too many arguments for path\n");
 			} else {
-				rval = exec_path(input_token_arr[1], \input_token_arr[2]);
+				rval = exec_path(input_token_arr[1], input_token_arr[2]);
 			}
 		} else {
 			rval = exec_program(*input_token_arr, input_token_arr);
