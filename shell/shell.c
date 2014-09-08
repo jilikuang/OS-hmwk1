@@ -8,6 +8,8 @@
 #include <errno.h>
 #include <wait.h>
 
+#include "path.h"
+
 #ifdef SHELL_DEBUG
 #define DBGMSG printf
 #else
@@ -167,6 +169,32 @@ int exec_program(const char *file, char **argv)
 	return rval;
 }
 
+int exec_path(const char *mode, const char *path)
+{
+	int rval = 0;
+	char *tmp_path = NULL;
+
+	if (mode == NULL) {
+		printf("Path database:\n");
+		tmp_path = path_get_first_path();
+		while (tmp_path != NULL) {
+			printf("%s\n", tmp_path);
+			tmp_path = path_get_next_path();
+		}
+	} else {
+		if ((strcmp(mode, "+") == 0) && (path != NULL)) {
+			rval = path_push_path(path);
+		} else if ((strcmp(mode, "-") == 0) && (path != NULL)) {
+			rval = path_delete_path(path);
+		} else {
+			printf("w4118_sh: Unknown operation\n");
+			rval = -1;
+		}
+	}
+
+	return rval;
+}
+
 int main(int argc, char **argv)
 {
 	int rval = 0;
@@ -250,6 +278,14 @@ int main(int argc, char **argv)
 					printf("Invalid directory path\n");
 				}
 			}
+		} else if (strcmp(input_token_arr[0], "path") == 0) {
+			if (token_num > 3) {
+				printf("w4118_sh: ");
+				printf("Too many arguments for path\n");
+			} else {
+				rval = exec_path(input_token_arr[1], \
+						input_token_arr[2]);
+			}
 		} else {
 			rval = exec_program(*input_token_arr, input_token_arr);
 		}
@@ -267,6 +303,8 @@ __main_exit:
 				(unsigned int)input_pipe_arr);
 		free(input_pipe_arr);
 	}
+
+	path_terminate();
 
 	return 0;
 }

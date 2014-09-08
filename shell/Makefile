@@ -3,9 +3,9 @@ CFLAGS := -Wall -Werror
 LDFLAGS :=
 
 
-OBJECTS := shell.o
+OBJECTS := shell.o path.o
 
-OBJECTS_DEBUG := shell_debug.o
+OBJECTS_DEBUG := shell_debug.o path_debug.o
 
 all: w4118_sh
 
@@ -24,8 +24,8 @@ debug: $(OBJECTS_DEBUG)
 
 clean:
 	rm -f w4118_sh
-	rm -f shell.o
 	rm -f w4118_sh_debug
+	rm -f $(OBJECTS)
 	rm -f $(OBJECTS_DEBUG)
 	rm -f err.log
 
