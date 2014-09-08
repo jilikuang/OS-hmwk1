@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 struct path_s {
 	char *path;
@@ -12,6 +13,9 @@ struct path_s {
 
 static struct path_s *path_head = NULL;
 static struct path_s *path_cur = NULL;
+
+static char *path_filename = NULL;
+static int path_filename_size = 0;
 
 char* path_get_first_path(void)
 {
@@ -119,6 +123,60 @@ int path_delete_path(const char *path)
 	return rval;
 }
 
+static char* get_full_filepath(const char *path, const char *filename)
+{
+	int file_len = strlen(filename);
+	int path_len = strlen(path);
+	int target_size = 0;
+
+	target_size = path_len + file_len + 2;
+	if (target_size > path_filename_size) {
+		if (path_filename)
+			free(path_filename);
+		path_filename = (char*)malloc(target_size);
+		if (path_filename == NULL) {
+			printf("error: Path/file allocation failed\n");
+			path_filename_size = 0;
+		} else {
+			path_filename_size = target_size;
+		}
+	}
+
+	strcpy(path_filename, path);
+	strcat(path_filename, "/");
+	strcat(path_filename, filename);
+
+	return path_filename;
+}
+
+char* path_check_file_exist(const char *filename)
+{
+	int rval = 0;
+	char *tmp_path = NULL;
+	char *chk_name = NULL;
+	struct stat fstat;
+
+	chk_name = get_full_filepath("", filename);
+	rval = stat(chk_name, &fstat);
+	if (rval == 0)
+		return chk_name;
+
+	tmp_path = path_get_first_path();
+
+	while (tmp_path) {
+		chk_name = get_full_filepath(tmp_path, filename);
+		rval = stat(chk_name, &fstat);
+		if (rval == 0)
+			break;
+		tmp_path = path_get_next_path();
+	}
+
+	if (rval == 0)
+		return chk_name;
+	else
+		return NULL;
+}
+
 void path_terminate(void)
 {
 	struct path_s *tmp = path_head;
@@ -130,4 +188,7 @@ void path_terminate(void)
 		free(tmp);
 		tmp = next;
 	}
+
+	if (path_filename)
+		free(path_filename);
 }

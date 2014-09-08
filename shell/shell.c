@@ -142,17 +142,25 @@ int exec_program(const char *file, char **argv)
 {
 	int rval = 0;
 	int pid = 0;
+	char *fexec = NULL;
+
+	fexec = path_check_file_exist(file);
+
+	if (fexec == NULL) {
+		printf("w4118_sh: Command not found - %s\n", file);
+		return -1;
+	}
 
 	pid = fork();
 	if (pid == 0) {
 #ifdef SHELL_DEBUG
 		int i = 0;
-		DBGMSG("Child exec %s\n", file);
+		DBGMSG("Child exec %s\n", fexec);
 		for (i=0; i<INPUT_TOKEN_NUM_UNIT; i++) {
 			printf("arg[%d]: %s\n", i, argv[i]);
 		}
 #endif
-		rval = execv(file, argv);
+		rval = execv(fexec, argv);
 		if (rval < 0)
 			print_errno();
 		DBGMSG("Child process exit\n");
@@ -175,12 +183,15 @@ int exec_path(const char *mode, const char *path)
 	char *tmp_path = NULL;
 
 	if (mode == NULL) {
-		printf("Path database:\n");
+		printf("PATH=");
 		tmp_path = path_get_first_path();
 		while (tmp_path != NULL) {
-			printf("%s\n", tmp_path);
+			printf("%s", tmp_path);
 			tmp_path = path_get_next_path();
+			if (tmp_path != NULL)
+				printf(":");
 		}
+		printf("\n");
 	} else {
 		if ((strcmp(mode, "+") == 0) && (path != NULL)) {
 			rval = path_push_path(path);
