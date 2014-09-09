@@ -131,15 +131,15 @@ static char *get_full_filepath(const char *path, const char *filename)
 
 	target_size = path_len + file_len + 2;
 	if (target_size > path_filename_size) {
-		if (path_filename)
-			free(path_filename);
-		path_filename = (char *)malloc(target_size);
-		if (path_filename == NULL) {
-			printf("error: Path/file allocation failed\n");
-			path_filename_size = 0;
-		} else {
-			path_filename_size = target_size;
+		char *tmp = (char *)realloc(path_filename, target_size);
+
+		if (tmp == NULL) {
+			printf("error: filename path reallocation failed\n");
+			return NULL;
 		}
+
+		path_filename = tmp;
+		path_filename_size = target_size;
 	}
 
 	strcpy(path_filename, path);
