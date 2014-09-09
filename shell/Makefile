@@ -3,9 +3,9 @@ CFLAGS := -Wall -Werror
 LDFLAGS :=
 
 
-OBJECTS := shell.o path.o
+OBJECTS := shell.o path.o input.o
 
-OBJECTS_DEBUG := shell_debug.o path_debug.o
+OBJECTS_DEBUG := shell_debug.o path_debug.o input_debug.o
 
 all: w4118_sh
 

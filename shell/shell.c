@@ -9,6 +9,7 @@
 #include <wait.h>
 
 #include "path.h"
+#include "input.h"
 
 #ifdef SHELL_DEBUG
 #define DBGMSG printf
@@ -19,46 +20,9 @@
 char *input_buf = NULL;
 unsigned int input_size = 0;
 
-#define INPUT_PIPE_NUM_UNIT	(8)
-
-char **input_pipe_arr = NULL;
-unsigned int input_pipe_num = INPUT_PIPE_NUM_UNIT;
-
-#define INPUT_TOKEN_NUM_UNIT	(128)
-
-char *input_token_arr[INPUT_TOKEN_NUM_UNIT];
-
 inline void print_errno(void)
 {
 	printf("error: %s\n", strerror(errno));
-}
-
-int search_input_token(char *input, const char *token, char **output_arr, unsigned int output_arr_num)
-{
-	int i = 0;
-	char *tmp = NULL;
-
-	*output_arr = strtok(input, token);
-	DBGMSG("Input token 0: %s\n", *output_arr);
-
-	i++;
-
-	do {
-		*(output_arr+i) = strtok(NULL, token);
-		if (*(output_arr+i) == NULL) {
-			DBGMSG("No more token\n");
-			break;
-		}
-		DBGMSG("Input token %d: %s\n", i, *(output_arr+i));
-
-		i++;
-	} while (i < output_arr_num);
-
-	tmp = strtok(NULL, token);
-	if (tmp != NULL)
-		printf("error: Too many arguments. They will be ignored\n");
-
-	return i;
 }
 
 int exec_cd(const char *path)
@@ -89,13 +53,6 @@ int exec_program(const char *file, char **argv)
 
 	pid = fork();
 	if (pid == 0) {
-#ifdef SHELL_DEBUG
-		int i = 0;
-
-		DBGMSG("Child exec %s\n", fexec);
-		for (i = 0; i < INPUT_TOKEN_NUM_UNIT; i++)
-			printf("arg[%d]: %s\n", i, argv[i]);
-#endif
 		rval = execv(fexec, argv);
 		if (rval < 0)
 			print_errno();
@@ -146,24 +103,9 @@ int exec_path(const char *mode, const char *path)
 int main(int argc, char **argv)
 {
 	int rval = 0;
-	int pipe_num = 0, token_num = 0;
+	int pipe_num = 0;
 	int i = 0;
-
-#ifdef SHELL_DEBUG
-	printf("argc: %d\n", argc);
-	for (i = 0; i < argc; i++)
-		printf("argv[%d]: %s\n", i, argv[i]);
-#endif
-
-	DBGMSG("Allocate pipe number: %d\n", input_pipe_num);
-	DBGMSG("Allocate pipe size: %d\n", input_pipe_num * sizeof(char *));
-	input_pipe_arr = (char **)malloc(input_pipe_num * sizeof(char *));
-
-	if (input_pipe_arr == NULL) {
-		printf("error: Input pipe array allocation failed! Shell terminates\n");
-		goto __main_exit;
-	}
-	DBGMSG("Input pipe array: 0x%X\n", (unsigned int)input_pipe_arr);
+	struct cmd_seg_s *cmd_seg = NULL;
 
 	while (1) {
 		printf("$ ");
@@ -181,61 +123,54 @@ int main(int argc, char **argv)
 		if (input_buf[0] == '\0')
 			continue;
 
-		pipe_num = search_input_token(input_buf, "|", input_pipe_arr, input_pipe_num);
+		rval = input_extract_cmd_seg(input_buf);
+
+		pipe_num = input_get_cmd_seg_num();
 		DBGMSG("Input pipe_num: %d\n", pipe_num);
 
-		for (i = 0; i < pipe_num; i++) {
-			token_num = search_input_token(input_pipe_arr[i], " ", input_token_arr, INPUT_TOKEN_NUM_UNIT-1);
-			DBGMSG("Input token number: %d\n", token_num);
-#ifdef SHELL_DEBUG
-			{
-				int j = 0;
+		cmd_seg = input_get_first_cmd_seg();
 
-				for (j = 0; j < INPUT_TOKEN_NUM_UNIT; j++)
-					printf("token %d: %s\n", j, input_token_arr[j]);
-			}
-#endif
+		for (i = 0; i < pipe_num; i++) {
+			rval = input_extract_cmd_token(cmd_seg);
+			cmd_seg = input_get_next_cmd_seg();
 		}
 
-		if (strcmp(input_token_arr[0], "exit") == 0) {
-			if (token_num > 1) {
+		cmd_seg = input_get_first_cmd_seg();
+
+		if (strcmp(cmd_seg->token_arr[0], "exit") == 0) {
+			if (cmd_seg->act_token_num > 1) {
 				printf("w4118_sh: ");
 				printf("exit don't need any arguments\n");
 			} else {
 				break;
 			}
-		} else if (strcmp(input_token_arr[0], "cd") == 0) {
-			if (token_num > 2) {
+		} else if (strcmp(cmd_seg->token_arr[0], "cd") == 0) {
+			if (cmd_seg->act_token_num > 2) {
 				printf("w4118_sh: Too many arguments for cd\n");
 			} else {
-				rval = exec_cd(input_token_arr[1]);
+				rval = exec_cd(cmd_seg->token_arr[1]);
 				if (rval < 0) {
 					printf("w4118_sh: ");
 					printf("Invalid directory path\n");
 				}
 			}
-		} else if (strcmp(input_token_arr[0], "path") == 0) {
-			if (token_num > 3) {
+		} else if (strcmp(cmd_seg->token_arr[0], "path") == 0) {
+			if (cmd_seg->act_token_num > 3) {
 				printf("w4118_sh: ");
 				printf("Too many arguments for path\n");
 			} else {
-				rval = exec_path(input_token_arr[1], input_token_arr[2]);
+				rval = exec_path(cmd_seg->token_arr[1], cmd_seg->token_arr[2]);
 			}
 		} else {
-			rval = exec_program(*input_token_arr, input_token_arr);
+			rval = exec_program(cmd_seg->token_arr[0], cmd_seg->token_arr);
 		}
 	}
 
-__main_exit:
 	if (input_buf)
 		free(input_buf);
 
-	if (input_pipe_arr != NULL) {
-		DBGMSG("Free input pipe array: 0x%X\n", (unsigned int)input_pipe_arr);
-		free(input_pipe_arr);
-	}
-
 	path_terminate();
+	input_terminate();
 
 	return 0;
 }
