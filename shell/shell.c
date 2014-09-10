@@ -8,56 +8,98 @@
 #include <errno.h>
 #include <wait.h>
 
+#include "defines.h"
 #include "path.h"
 #include "input.h"
-
-#ifdef SHELL_DEBUG
-#define DBGMSG printf
-#else
-#define DBGMSG(...)
-#endif
-
-char *input_buf = NULL;
-unsigned int input_size = 0;
 
 inline void print_errno(void)
 {
 	printf("error: %s\n", strerror(errno));
 }
 
-int exec_cd(const char *path)
+int exec_cd(struct cmd_seg_s *cmd_seg)
 {
 	int rval = 0;
 
-	DBGMSG("Current dir (before): %s\n", (char *)get_current_dir_name());
-	rval = chdir(path);
+	if (cmd_seg->act_token_num > 2)
+		printf("error: Too many arguments\n");
+	else
+		rval = chdir(cmd_seg->token_arr[1]);
+
 	if (rval < 0)
 		print_errno();
-	DBGMSG("Current dir (after): %s\n", (char *)get_current_dir_name());
 
 	return rval;
 }
 
-int exec_program(const char *file, char **argv)
+int exec_path(struct cmd_seg_s *cmd_seg)
+{
+	int rval = 0;
+	char *tmp_path = NULL;
+
+	if (cmd_seg->act_token_num > 3) {
+		printf("Too many arguments\n");
+		return -1;
+	}
+
+	if (cmd_seg->act_token_num == 1) {
+		printf("PATH=");
+		tmp_path = path_get_first_path();
+		while (tmp_path != NULL) {
+			printf("%s", tmp_path);
+			tmp_path = path_get_next_path();
+			if (tmp_path != NULL)
+				printf(":");
+		}
+		printf("\n");
+	} else {
+		char *mode = cmd_seg->token_arr[1];
+		char *path = cmd_seg->token_arr[2];
+
+		if (strcmp(mode, "+") == 0) {
+			if (path == NULL) {
+				printf("error: Illegal path\n");
+				rval = -1;
+			} else {
+				rval = path_push_path(path);
+			}
+		} else if (strcmp(mode, "-") == 0) {
+			if (path == NULL) {
+				printf("error: Illegal path\n");
+				rval = -1;
+			} else {
+				rval = path_delete_path(path);
+			}
+		} else {
+			printf("error: Unknown operation\n");
+			rval = -1;
+		}
+	}
+
+	return rval;
+}
+
+int exec_program(struct cmd_seg_s *cmd_seg)
 {
 	int rval = 0;
 	int pid = 0;
+	char *file = cmd_seg->token_arr[0];
 	char *fexec = NULL;
 
 	fexec = path_check_file_exist(file);
 
 	if (fexec == NULL) {
-		printf("w4118_sh: Command not found - %s\n", file);
+		printf("error: Command not found - %s\n", file);
 		return -1;
 	}
 
 	pid = fork();
 	if (pid == 0) {
-		rval = execv(fexec, argv);
+		rval = execv(fexec, cmd_seg->token_arr);
 		if (rval < 0)
 			print_errno();
-		DBGMSG("Child process exit\n");
-		exit(EXIT_SUCCESS);
+		/* If exec succeeds, should not get to this point */
+		exit(EXIT_FAILURE);
 	} else if (pid > 0) {
 		int status = 0;
 
@@ -71,40 +113,12 @@ int exec_program(const char *file, char **argv)
 	return rval;
 }
 
-int exec_path(const char *mode, const char *path)
-{
-	int rval = 0;
-	char *tmp_path = NULL;
-
-	if (mode == NULL) {
-		printf("PATH=");
-		tmp_path = path_get_first_path();
-		while (tmp_path != NULL) {
-			printf("%s", tmp_path);
-			tmp_path = path_get_next_path();
-			if (tmp_path != NULL)
-				printf(":");
-		}
-		printf("\n");
-	} else {
-		if ((strcmp(mode, "+") == 0) && (path != NULL)) {
-			rval = path_push_path(path);
-		} else if ((strcmp(mode, "-") == 0) && (path != NULL)) {
-			rval = path_delete_path(path);
-		} else {
-			printf("w4118_sh: Unknown operation\n");
-			rval = -1;
-		}
-	}
-
-	return rval;
-}
-
 int main(int argc, char **argv)
 {
 	int rval = 0;
+	char *input_buf = NULL;
+	unsigned int input_size = 0;
 	int pipe_num = 0;
-	int i = 0;
 	struct cmd_seg_s *cmd_seg = NULL;
 
 	while (1) {
@@ -128,41 +142,23 @@ int main(int argc, char **argv)
 		pipe_num = input_get_cmd_seg_num();
 		DBGMSG("Input pipe_num: %d\n", pipe_num);
 
-		cmd_seg = input_get_first_cmd_seg();
-
-		for (i = 0; i < pipe_num; i++) {
+		if (pipe_num == 1) {
+			cmd_seg = input_get_first_cmd_seg();
 			rval = input_extract_cmd_token(cmd_seg);
-			cmd_seg = input_get_next_cmd_seg();
-		}
+			if (rval < 0)
+				continue;
 
-		cmd_seg = input_get_first_cmd_seg();
-
-		if (strcmp(cmd_seg->token_arr[0], "exit") == 0) {
-			if (cmd_seg->act_token_num > 1) {
-				printf("w4118_sh: ");
-				printf("exit don't need any arguments\n");
-			} else {
+			if (strcmp(cmd_seg->token_arr[0], "exit") == 0)
 				break;
-			}
-		} else if (strcmp(cmd_seg->token_arr[0], "cd") == 0) {
-			if (cmd_seg->act_token_num > 2) {
-				printf("w4118_sh: Too many arguments for cd\n");
-			} else {
-				rval = exec_cd(cmd_seg->token_arr[1]);
-				if (rval < 0) {
-					printf("w4118_sh: ");
-					printf("Invalid directory path\n");
-				}
-			}
-		} else if (strcmp(cmd_seg->token_arr[0], "path") == 0) {
-			if (cmd_seg->act_token_num > 3) {
-				printf("w4118_sh: ");
-				printf("Too many arguments for path\n");
-			} else {
-				rval = exec_path(cmd_seg->token_arr[1], cmd_seg->token_arr[2]);
-			}
+			else if (strcmp(cmd_seg->token_arr[0], "cd") == 0)
+				rval = exec_cd(cmd_seg);
+			else if (strcmp(cmd_seg->token_arr[0], "path") == 0)
+				rval = exec_path(cmd_seg);
+			else
+				rval = exec_program(cmd_seg);
 		} else {
-			rval = exec_program(cmd_seg->token_arr[0], cmd_seg->token_arr);
+			/* Handle piped commands */
+			printf("Do be done...\n");
 		}
 	}
 
