@@ -1,0 +1,41 @@
+1. (1.8)
+
+
+2. (1.13)
+
+
+3. (3.1)
+Yes, UNIX fork can return an error. Since fork is basically to generate a child process by copying the current process as its parent, it means that the kernel should allocate sufficient memory to accommodate the binary file of the child process and size of the memory should be the same as parent’s. When there is no more memory for the child, there is no way to create the child process. In that case, the parent process should be informed to prevent anticipated errors.
+
+If I designed the function, I would allow an error return as well. If there are no error returns, the parent will need to handle any possible following issues if it needs to coordinate with the child to do something. It should be easier to avoid it at the beginning.
+
+4. (3.2)
+Yes, UNIX exec can return an error. The file path given to the exec function could be invalid. That is, the exec function cannot get the binary file to be executed. In that case, the child process will not be overlaid with a new binary code and remain the same as the parent process. The program may want to handle such conditions.
+
+If I designed the function, I would make it possible for exec to return errors. Exec failure should not be programmer’s design. Returning error can help them handle it at the early stage, instead of dealing with it clumsily later.
+
+5. (3.3)
+The parent and each child process will continuously fork new child processes until forking failed. After the process get out of the loop because of forking failure, the process will exit. If the scheduling makes the processes execute in turn, one process’s exiting and being released could make it possible for other processes to fork successfully. In that case, the system will have a number of the same processes running, and the number could vary between a number which is the maximum of the number of processes able to run.
+
+6. (3.4)
+
+
+7. (3.7)
+ls will be executed to show the content of the directory and the the process will terminate. Because exec will overlay the currently running shell with ls program, and there is no way to go back the shell after ls is done.
+
+8. (3.8)
+32
+
+9. (3.9)
+3 copies of x.
+Parent’s x will be 20.
+The first child’s x will be 10.
+The second child’s x will be 15.
+
+10. (3.10)
+Program 1:
+6
+6
+
+Program 2:
+6
