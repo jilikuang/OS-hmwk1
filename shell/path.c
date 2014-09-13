@@ -20,7 +20,6 @@ int path_filename_size = 0;
 char *path_get_first_path(void)
 {
 	path_cur = path_head;
-
 	if (path_cur == NULL)
 		return NULL;
 
@@ -33,9 +32,8 @@ char *path_get_next_path(void)
 
 	if (tmp == NULL)
 		return NULL;
-	else if (tmp->next == NULL)
+	if (tmp->next == NULL)
 		return NULL;
-
 	path_cur = tmp->next;
 
 	return path_cur->path;
@@ -52,7 +50,6 @@ int path_search_path(const char *path)
 			path_cur = tmp;
 			break;
 		}
-
 		tmp = tmp->next;
 	}
 
@@ -83,10 +80,7 @@ int path_push_path(const char *path)
 			rval = -1;
 		} else {
 			strcpy(tmp->path, path);
-			if (path_head == NULL)
-				tmp->next = NULL;
-			else
-				tmp->next = path_head;
+			tmp->next = path_head;
 			path_head = tmp;
 		}
 	}
@@ -129,6 +123,7 @@ static char *get_full_filepath(const char *path, const char *filename)
 	int path_len = strlen(path);
 	int target_size = 0;
 
+	/* 1 for "/", 1 for "\n" */
 	target_size = path_len + file_len + 2;
 	if (target_size > path_filename_size) {
 		char *tmp = (char *)realloc(path_filename, target_size);
@@ -156,6 +151,7 @@ char *path_check_file_exist(const char *filename)
 	char *chk_name = NULL;
 	struct stat fstat;
 
+	/* Check name without path */
 	chk_name = get_full_filepath("", filename);
 	rval = stat(chk_name, &fstat);
 	if (rval == 0)

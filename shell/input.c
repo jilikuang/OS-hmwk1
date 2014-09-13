@@ -31,7 +31,7 @@ static int insert_cmd_seg_node(char *cmd, struct cmd_seg_s *node)
 			rval = -1;
 		}
 		strcpy(tmp->cmd, cmd);
-		tmp->size = size;
+		tmp->size = size * sizeof(char);
 		tmp->next = NULL;
 	}
 
@@ -125,32 +125,33 @@ int input_extract_cmd_seg(char *input)
 	if (tmp_node == NULL) {
 		/* create an empty head node first */
 		rval = insert_cmd_seg_node("", NULL);
-		if (rval < 0) {
-			printf("error: Cannot create the head node\n");
+		if (rval < 0)
 			return rval;
-		}
 	}
 
 	tmp_node = cmd_seg_head;
 	cmd_seg_act_num = 0;
 
 	tmp_str = strtok(input, "|");
-
-	while (tmp_str != NULL) {
-		if (tmp_node == NULL) {
-			tmp_node = input_get_cur_cmd_seg();
-			rval = insert_cmd_seg_node(tmp_str, tmp_node);
-		} else {
-			rval = update_cmd_seg_node(tmp_str, tmp_node);
+	if (tmp_str == NULL)
+		printf("error: Syntax error in pipe usage\n");
+	else
+		while (tmp_str != NULL) {
+			DBGMSG("'|' found %s\n", tmp_str);
+			if (tmp_node == NULL) {
+				tmp_node = input_get_cur_cmd_seg();
+				rval = insert_cmd_seg_node(tmp_str, tmp_node);
+			} else {
+				rval = update_cmd_seg_node(tmp_str, tmp_node);
+			}
+			if (rval < 0) {
+				cmd_seg_act_num = 0;
+				break;
+			}
+			cmd_seg_act_num++;
+			tmp_node = input_get_next_cmd_seg();
+			tmp_str = strtok(NULL, "|");
 		}
-		if (rval < 0) {
-			cmd_seg_act_num = 0;
-			break;
-		}
-		cmd_seg_act_num++;
-		tmp_node = input_get_next_cmd_seg();
-		tmp_str = strtok(NULL, "|");
-	}
 
 	return rval;
 }
@@ -166,7 +167,7 @@ int input_extract_cmd_token(struct cmd_seg_s *cmd_seg)
 	for (i = 0; i < (INPUT_TOKEN_NUM_MAX - 1); i++) {
 		if (tmp_str == NULL)
 			break;
-
+		DBGMSG("' ' found %s\n", tmp_str);
 		cmd_seg->token_arr[i] = tmp_str;
 		tmp_str = strtok(NULL, " ");
 	}

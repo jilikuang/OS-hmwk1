@@ -95,17 +95,15 @@ int exec_program(struct cmd_seg_s *cmd_seg)
 
 	pid = fork();
 	if (pid == 0) {
-		rval = execv(fexec, cmd_seg->token_arr);
-		if (rval < 0)
+		if (execv(fexec, cmd_seg->token_arr) < 0)
 			print_errno();
 		/* If exec succeeds, should not get to this point */
 		exit(EXIT_FAILURE);
 	} else if (pid > 0) {
-		int status = 0;
-
 		DBGMSG("Parent wait for child %d\n", pid);
-		rval = waitpid(pid, &status, 0);
-		DBGMSG("Parent back from child %d: %d\n", rval, status);
+		if (waitpid(pid, NULL, 0) < 0)
+			print_errno();
+		DBGMSG("Parent back from child\n");
 	} else {
 		print_errno();
 	}
@@ -147,6 +145,10 @@ int do_piped_commands(int cmd_seg_num)
 		else
 			cmd_seg = input_get_next_cmd_seg();
 		rval = input_extract_cmd_token(cmd_seg);
+		if (cmd_seg->act_token_num == 0) {
+			printf("error: Syntax error in pipe usage\n");
+			return -1;
+		}
 		fexec = path_check_file_exist(cmd_seg->token_arr[0]);
 		if (fexec == NULL) {
 			printf("error: Command not found - %s\n",
@@ -174,6 +176,7 @@ int do_piped_commands(int cmd_seg_num)
 	for (i = 0; i < cmd_seg_num; i++) {
 		pid_arr[i] = fork();
 		if (pid_arr[i] == 0) {
+			/* Explicitly get the cmd seg of this child */
 			cmd_seg = input_get_first_cmd_seg();
 			for (j = 0; j < i; j++)
 				cmd_seg = input_get_next_cmd_seg();
@@ -193,7 +196,8 @@ int do_piped_commands(int cmd_seg_num)
 			if (close(*(cmdpipe+j)) < 0)
 				print_errno();
 		DBGMSG("Parent wait %d\n", pid_arr[i-1]);
-		waitpid(pid_arr[i-1], NULL, 0);
+		if (waitpid(pid_arr[i-1], NULL, 0) < 0)
+			print_errno();
 		DBGMSG("All child is done\n");
 	} else {
 		if (i == 0) {
@@ -233,9 +237,10 @@ int do_piped_commands(int cmd_seg_num)
 		DBGMSG("exec %s\n", fexec);
 		if (execv(fexec, cmd_seg->token_arr) < 0)
 			print_errno();
+		exit(EXIT_FAILURE);
 	}
-__exit:
 
+__exit:
 	free(cmdpipe);
 	free(pid_arr);
 
@@ -249,9 +254,10 @@ int main(int argc, char **argv)
 	unsigned int input_size = 0;
 	int cmd_seg_num = 0;
 	struct cmd_seg_s *cmd_seg = NULL;
+	char *tmp_c = NULL;
 
 	while (1) {
-		printf("$ ");
+		printf("$");
 		rval = getline(&input_buf, &input_size, stdin);
 
 		if (rval < 0) {
@@ -266,15 +272,21 @@ int main(int argc, char **argv)
 		if (input_buf[0] == '\0')
 			continue;
 
+		tmp_c = strchr(input_buf, '|');
 		rval = input_extract_cmd_seg(input_buf);
-
 		cmd_seg_num = input_get_cmd_seg_num();
 		DBGMSG("Input cmd_seg_num: %d\n", cmd_seg_num);
 
-		if (cmd_seg_num == 1) {
+		if (cmd_seg_num == 0) {
+			continue;
+		} else if (cmd_seg_num == 1) {
+			if (tmp_c) {
+				printf("error: Syntax error in pipe usage\n");
+				continue;
+			}
 			cmd_seg = input_get_first_cmd_seg();
 			rval = input_extract_cmd_token(cmd_seg);
-			if (rval < 0)
+			if (cmd_seg->act_token_num == 0)
 				continue;
 
 			if (strcmp(cmd_seg->token_arr[0], "exit") == 0)
