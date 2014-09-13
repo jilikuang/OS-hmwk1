@@ -43,7 +43,6 @@ int exec_path(struct cmd_seg_s *cmd_seg)
 	}
 
 	if (cmd_seg->act_token_num == 1) {
-		printf("PATH=");
 		tmp_path = path_get_first_path();
 		while (tmp_path != NULL) {
 			printf("%s", tmp_path);
@@ -252,7 +251,7 @@ int main(int argc, char **argv)
 	int rval = 0;
 	char *input_buf = NULL;
 	unsigned int input_size = 0;
-	int cmd_seg_num = 0;
+	int pipe_num = 0, cmd_seg_num = 0;
 	struct cmd_seg_s *cmd_seg = NULL;
 	char *tmp_c = NULL;
 
@@ -273,17 +272,25 @@ int main(int argc, char **argv)
 			continue;
 
 		tmp_c = strchr(input_buf, '|');
+		pipe_num = 0;
+		while (tmp_c != NULL) {
+			pipe_num++;
+			tmp_c = strchr(tmp_c+1, '|');
+		}
+
+		tmp_c = strchr(input_buf, '|');
 		rval = input_extract_cmd_seg(input_buf);
 		cmd_seg_num = input_get_cmd_seg_num();
 		DBGMSG("Input cmd_seg_num: %d\n", cmd_seg_num);
 
+		if (pipe_num >= cmd_seg_num) {
+			printf("error: Syntax error in pipe usage\n");
+			continue;
+		}
+
 		if (cmd_seg_num == 0) {
 			continue;
 		} else if (cmd_seg_num == 1) {
-			if (tmp_c) {
-				printf("error: Syntax error in pipe usage\n");
-				continue;
-			}
 			cmd_seg = input_get_first_cmd_seg();
 			rval = input_extract_cmd_token(cmd_seg);
 			if (cmd_seg->act_token_num == 0)

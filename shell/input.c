@@ -162,7 +162,7 @@ int input_extract_cmd_token(struct cmd_seg_s *cmd_seg)
 	int i = 0;
 	char *tmp_str = NULL;
 
-	tmp_str = strtok(cmd_seg->cmd, " ");
+	tmp_str = strtok(cmd_seg->cmd, " \t");
 
 	for (i = 0; i < (INPUT_TOKEN_NUM_MAX - 1); i++) {
 		if (tmp_str == NULL)
