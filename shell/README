@@ -1,0 +1,99 @@
+* Code Structure:
+
+hmwk1/shell/ —- shell.c
+             |
+              - defines.h
+             |
+              — path.h/path.c
+             |
+              - input.h/input.c
+
+  - defines.h
+    The header file of global definitions.
+
+  - shell.c
+    The implementation of w4118_sh. This file is the entry point of w4118_sh.
+
+  - path.h/path.c
+    The header and the implementation of path storage and access.
+
+  - input.h/input.c
+    The header and the implementation of input storage, analysis and access.
+
+* Design
+
+  - Input method
+
+    Originally I used getchar to get each character from stdout and allocated a double buffer to contain the input. The buffers would be switched between when the collection buffer was full. However, after I saw a thread on Piazza, I decided to use getline() instead, since it is relatively simple to handle errors with it.
+
+    After the input string is collected, it will be analyzed, separated, and stored in a command segment linked list, which is implemented in input.h/input.c. There is a function provided to extract the input with ‘|’ and record each part as a commend segment in the list.
+
+    Furthermore, another function is provided to divide each command segment with ‘ ‘ and ‘\t’ to get the command and the arguments. To simplify the condition, a minimum number of tokens can be used in one command segment is specified as 128. That is, the first token should be the command and the last token pointer should be a NULL such that the maximum number of arguments should be 126. Letting the last token pointer be NULL is to make it easier to execute programs since it is the argument structure for execv().
+
+    To access the processed command segments, some functions is provided to get the content and information of each command segment.
+
+  - Built-in commands
+
+    > exit
+
+      When the input is only “exit”, then the shell simply jumps out of the loop and terminate.
+
+    > cd
+
+      When the first argument (the second token) is specified, then the shell uses chdir() to switch the working directory to the <argument 1>, and I let chdir() to check errors on its own
+
+    > path & program execution
+
+      I use the self-defined path utility to show/add/delete path. The path utility was implemented basically on a path linked list. Some functions regarding the list were designed to traverse, insert and delete the nodes in the list.
+
+      When only “path” is given, a list traversal is done and printed. For “path +/- <dir>”, I use the utility to add/remove the nodes in the path list respectively.
+
+      In addition, I added a file matching function in the path utility, which matches the input file name with each path stored in the list and checks its existence. In the shell, before execute a program, I check if the program exists in the path list. If the file exists, then it is passed to execv() to execute the program.
+
+  - Piped commands
+
+    In implementing piped commands, my idea is to create as many number of the child processes as of the command segments. Before forking the child processes, I created pipes first, the number of which is one fewer than the number of command segments. In each child process, I specify the pipe ports it is expected to use and execute the anticipated program. In the parent process, I let it wait for the last child process.
+
+* Test
+
+  I tested it manually and with the provided hw1_sample.py. Manually, I tried the following command sequences to make sure its basic functionality:
+
+   $
+   $ls => error expected
+   $cd /
+   $path + /bin
+   $pod
+   $path + /usr/bin
+   $path
+   $ls|less
+   $path - /bin
+   $ls => error expected
+   $path + /bin
+   $cd /bin
+   $ls|grep bz|less
+   $exit
+
+  With the above simple test, I simply made sure that the shell should work if the input follows the explicitly desired input. To check other possible legal inputs, I tried the following input as well, and fixed the issues occurring respectively:
+
+   $         
+   $	cd /   
+   $path + /bin
+   $path + /usr/bin
+   $ls||||||less
+   $||||||ls|less
+   $ls|||||
+   $cd /bin|less
+   $exit|	ls
+   $path +
+   $path -
+   $    cd
+   $           exit|
+   $    exit
+
+  Afterwards, I tried to run checkpatch.pl and hm1_sample.py, and fixed the errors they reported.
+
+ * Reference
+   - http://linux.die.net
+   - http://man7.org
+   - https://piazza.com
+   - libc.pdf
