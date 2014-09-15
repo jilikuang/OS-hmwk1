@@ -43,6 +43,7 @@ int exec_path(struct cmd_seg_s *cmd_seg)
 	}
 
 	if (cmd_seg->act_token_num == 1) {
+		/* Print all paths */
 		tmp_path = path_get_first_path();
 		while (tmp_path != NULL) {
 			printf("%s", tmp_path);
@@ -129,6 +130,15 @@ static int is_selfdefcmd(char *cmd)
 	return 1;
 }
 
+void close_all_pipes(int *pipe, int pipe_num)
+{
+	int i = 0;
+
+	for (i = 0; i < (2 * pipe_num); i++)
+		if (close(*(pipe + i)) < 0)
+			print_errno();
+}
+
 int do_piped_commands(int cmd_seg_num)
 {
 	int rval = 0;
@@ -138,6 +148,8 @@ int do_piped_commands(int cmd_seg_num)
 	int *cmdpipe = NULL;
 	int *pid_arr = NULL;
 
+	/* Prepare all tokens in all command segments */
+	/* Check program's existence */
 	for (i = 0; i < cmd_seg_num; i++) {
 		if (i == 0)
 			cmd_seg = input_get_first_cmd_seg();
@@ -165,6 +177,7 @@ int do_piped_commands(int cmd_seg_num)
 	cmdpipe = (int *)realloc(cmdpipe, 2 * (cmd_seg_num - 1) * sizeof(int));
 	pid_arr = (int *)realloc(pid_arr, cmd_seg_num * sizeof(int));
 
+	/* Create N-1 pipes */
 	for (i = 0; i < (cmd_seg_num - 1); i++) {
 		rval = pipe(cmdpipe + (2 * i));
 		DBGMSG("pipe[%d] = (%d, %d)\n", i,
@@ -172,6 +185,7 @@ int do_piped_commands(int cmd_seg_num)
 				*(cmdpipe + (2 * i) + 1));
 	}
 
+	/* Parent forks N children */
 	for (i = 0; i < cmd_seg_num; i++) {
 		pid_arr[i] = fork();
 		if (pid_arr[i] == 0) {
@@ -191,12 +205,10 @@ int do_piped_commands(int cmd_seg_num)
 
 	if (i == cmd_seg_num) {
 		/* The parent */
-		for (j = 0; j < 2*(cmd_seg_num - 1); j++)
-			if (close(*(cmdpipe+j)) < 0)
-				print_errno();
-		DBGMSG("Parent wait %d\n", pid_arr[i-1]);
-		if (waitpid(pid_arr[i-1], NULL, 0) < 0)
-			print_errno();
+		close_all_pipes(cmdpipe, cmd_seg_num - 1);
+		DBGMSG("Parent wait all\n");
+		while (wait(NULL) >= 0)
+			;
 		DBGMSG("All child is done\n");
 	} else {
 		if (i == 0) {
@@ -206,9 +218,7 @@ int do_piped_commands(int cmd_seg_num)
 					*(cmdpipe+1));
 			if (dup2(*(cmdpipe+1), 1) < 0)
 				print_errno();
-			for (j = 0; j < 2*(cmd_seg_num - 1); j++)
-				if (close(*(cmdpipe+j)) < 0)
-					print_errno();
+			close_all_pipes(cmdpipe, cmd_seg_num - 1);
 		} else if (i == (cmd_seg_num - 1)) {
 			/* The last child */
 			DBGMSG("%d: r %d / c %d\n", i,
@@ -216,9 +226,7 @@ int do_piped_commands(int cmd_seg_num)
 					*(cmdpipe+(2*(i-1)+1)));
 			if (dup2(*(cmdpipe+(2*(i-1))), 0) < 0)
 				print_errno();
-			for (j = 0; j < 2*(cmd_seg_num - 1); j++)
-				if (close(*(cmdpipe+j)) < 0)
-					print_errno();
+			close_all_pipes(cmdpipe, cmd_seg_num - 1);
 		} else {
 			/* The middle child */
 			DBGMSG("%d: r %d / w %d\n", i,
@@ -228,9 +236,7 @@ int do_piped_commands(int cmd_seg_num)
 				print_errno();
 			if (dup2(*(cmdpipe+(2*i)+1), 1) < 0)
 				print_errno();
-			for (j = 0; j < 2*(cmd_seg_num - 1); j++)
-				if (close(*(cmdpipe+j)) < 0)
-					print_errno();
+			close_all_pipes(cmdpipe, cmd_seg_num - 1);
 		}
 		fexec = path_check_file_exist(cmd_seg->token_arr[0]);
 		DBGMSG("exec %s\n", fexec);
@@ -271,6 +277,7 @@ int main(int argc, char **argv)
 		if (input_buf[0] == '\0')
 			continue;
 
+		/* Count number of '|' */
 		tmp_c = strchr(input_buf, '|');
 		pipe_num = 0;
 		while (tmp_c != NULL) {
@@ -278,11 +285,11 @@ int main(int argc, char **argv)
 			tmp_c = strchr(tmp_c+1, '|');
 		}
 
-		tmp_c = strchr(input_buf, '|');
 		rval = input_extract_cmd_seg(input_buf);
 		cmd_seg_num = input_get_cmd_seg_num();
 		DBGMSG("Input cmd_seg_num: %d\n", cmd_seg_num);
 
+		/* For legal pipe usage, # of '|' should be fewer than cmds */
 		if (pipe_num >= cmd_seg_num) {
 			printf("error: Syntax error in pipe usage\n");
 			continue;

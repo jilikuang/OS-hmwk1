@@ -52,7 +52,7 @@ hmwk1/shell/ —- shell.c
 
   - Piped commands
 
-    In implementing piped commands, my idea is to create as many number of the child processes as of the command segments. Before forking the child processes, I created pipes first, the number of which is one fewer than the number of command segments. In each child process, I specify the pipe ports it is expected to use and execute the anticipated program. In the parent process, I let it wait for the last child process.
+    In implementing piped commands, my idea is to create as many number of the child processes as of the command segments. Before forking the child processes, I created pipes first, the number of which is one fewer than the number of command segments. In each child process, I specify the pipe ports it is expected to use and execute the anticipated program. In the parent process, I let it wait for the all child process done.
 
 * Test
 
